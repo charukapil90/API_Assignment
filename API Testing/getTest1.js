@@ -6,69 +6,85 @@ const rp = require('request-promise');
 const test = lab.test;
 const Code = require('code');
 const expect = Code.expect;
-  
-    const options = {
-        method : 'GET',
-        uri : 'http://dummy.restapiexample.com/api/v1/employees',
-        json : true,
-        };
+
+var includeheaders = function(body, response) {
+    return {'status': response.statusCode, 'data': body};
+  };
+
+    //Declaring valid Request parameters
     const options_status = {
         method : 'GET',
         uri : 'http://dummy.restapiexample.com/api/v1/employees',
         json : true,
-        resolveWithFullResponse: true
+        resolveWithFullResponse: true,
+        transform: includeheaders
     };
-
+    //Declaring invalid api call parameters to simulate error
+    const options_invalid = {
+        method : 'GET',
+        uri : 'http://dummy.restapiexample.com/api/v1/employees/',
+        resolveWihFullResponse : true,
+        json : true,
+    };
+    
+    //Managing all the Status code scenarios within experiment block
     experiment('Validating the Status code',()=>{
 
-        test('Validating success status',()=>{
+        //Status Code Scenarios - Test 1
+        test('Validating success status for valid request',()=>{
             rp(options_status).then(function(response){
-            expect(response.statusCode).to.equal(200)
-            }).catch((err)=>
-            {
+            //Fetching the status code returned from the api and comparing it with the success code using expect function
+            expect(response.status).to.equal(200)
+            }).catch((err)=>{
+            //Error handling using catch block
              console.log(err)
             })
         })
-        test('Validating no. of records returned',()=>{
-            rp(options).then(function(response){
-            expect(response.length).to.equal(62)
-            }).catch((err)=>
-            {
-             console.log(err)
+
+        //Status Code Scenarios - Test 2
+        test('Validating failure status for invalid request',()=>{
+            rp(options_invalid).then((response)=>{
+            //Fetching the status code returned from the api for invalid request and comparing it with 404 NOt found response
+            expect(response.statusCode).to.equal(200)
+            }).catch((err)=>{
+            //Fetching error code and comparing it with expected error
+            expect(err.statusCode).to.equal(404)
             })
         })
     });
   
-    
-    experiment('Validating the body content',()=>{
+    //Managing all the content verification scenarios within this experiment block
+    experiment('Validating the body content',{ timeout: 1000 },()=>{
 
-        test('Validate Employee Name',()=>{
-            rp(options).then(function(response){
-            var arr =  JSON.stringify(response)
-            var test =  JSON.parse(arr)
+        //Content Verification - Test 1
+        test('Validate Employee Name to contain only Alphabets and Space',()=>{
+            rp(options_status).then(function(response){
+            var test =  JSON.parse(JSON.stringify(response.data))
             var len = test.length;        
-            for(var i=0;i<len;i++)
+            for(var i=1;i<len;i++)
             {
-            //console.log('Actual Details :'+test[i].id+' '+test[i].employee_name+' '+test[i].employee_salary+' '+test[i].employee_age)
+            //Validating Employee names
+            expect(test[i].employee_name).to.match(/^[A-Za-z\s]{1,}[\.]{0,1}[A-Za-z\s]{0,}$/)
             }   
-
-            }).catch(function(err)
-            {
-            console.log('API Failed !!! : '+err);
-            }).catch((err)=>
-            {
-             console.log(err)
+            }).catch((err)=>{
+            //Catching error for invalid names
+             console.log("Invalid Name : "+err)
             })
         })
 
-        test('Validating body content',()=>{
-            rp(options).then(function(response){
-            var arr =  JSON.stringify(response)
-            var test =  JSON.parse(arr)
-            expect(test[0]).to.include('id')
-            }).catch((err)=>
+        //Content Verification - Test 2
+        test('Validating employee salary to be non-zero',()=>{
+            rp(options_status).then(function(response){
+            var test =  JSON.parse(JSON.stringify(response.data))
+            var len = test.length;        
+            for(var i=0;i<len;i++)
             {
-             console.log(err)
+            //Checking salary to be above 0
+            expect(parseInt(test[i].employee_salary)).to.be.above(0)
+            }
+            }).catch((err)=>
+            {//catching error for invalid salary
+             console.log("Salaray is invalid : "+err)
             })
         })
     });
